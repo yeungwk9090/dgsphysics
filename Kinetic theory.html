@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gas Lab: Kinetic Theory Simulator</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for the graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: white; }
+        canvas { touch-action: none; }
+        .slider-thumb::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: #38bdf8; cursor: pointer; border-radius: 50%; }
+        .slider-thumb::-moz-range-thumb { width: 20px; height: 20px; background: #38bdf8; cursor: pointer; border-radius: 50%; }
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="p-4 border-b border-slate-700 bg-slate-900 flex justify-between items-center shadow-lg z-10">
+        <div>
+            <h1 class="text-2xl font-bold text-sky-400">Gas Lab <span class="text-slate-400 text-sm font-normal">Kinetic Molecular Theory</span></h1>
+        </div>
+        <div class="text-sm text-slate-400 hidden md:block">
+            High School Physics Simulator | PV = nRT
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Simulation Area -->
+        <div class="relative flex-1 bg-slate-950 flex flex-col items-center justify-center p-4 overflow-hidden">
+            <!-- Labels inside the Sim -->
+            <div class="absolute top-6 left-6 text-slate-500 text-xs uppercase tracking-widest font-bold z-0 select-none">Particle Chamber</div>
+            
+            <!-- The Canvas Container (Dynamic Width) -->
+            <div id="container-box" class="relative border-4 border-slate-600 bg-slate-900 shadow-2xl transition-all duration-75 ease-out rounded-lg" style="width: 600px; height: 500px; border-right-color: #ef4444; border-right-width: 8px;">
+                <canvas id="simCanvas"></canvas>
+                
+                <!-- Piston Visual -->
+                <div class="absolute right-[-12px] top-1/2 -translate-y-1/2 bg-slate-700 text-xs px-2 py-1 rounded rotate-90 text-white font-mono">MOVABLE WALL</div>
+            </div>
+
+            <!-- Legend -->
+            <div class="mt-4 flex gap-4 text-xs text-slate-400">
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-red-500"></span> Fast</div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-500"></span> Slow</div>
+                <div class="flex items-center gap-2 border-l border-slate-700 pl-4">
+                    <span class="text-sky-400 font-bold" id="display-gas-name">Helium</span>
+                    <span>(Mass: <span id="display-gas-mass">4</span>u)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Dashboard -->
+        <div class="w-full md:w-96 bg-slate-900 border-l border-slate-700 flex flex-col overflow-y-auto custom-scrollbar shadow-xl z-20">
+            
+            <!-- Real-time Stats -->
+            <div class="p-4 grid grid-cols-2 gap-3 border-b border-slate-700 bg-slate-800">
+                <div class="col-span-2 text-center mb-1 text-sky-300 text-xs font-bold tracking-widest uppercase">Live Sensors</div>
+                
+                <div class="bg-slate-700 p-2 rounded-lg text-center">
+                    <div class="text-[10px] text-slate-400 uppercase">Pressure</div>
+                    <div class="text-xl font-mono font-bold text-white" id="val-pressure">0.00</div>
+                    <div class="text-[10px] text-slate-500">atm</div>
+                </div>
+
+                <div class="bg-slate-700 p-2 rounded-lg text-center">
+                    <div class="text-[10px] text-slate-400 uppercase">Temp</div>
+                    <div class="text-xl font-mono font-bold text-orange-400" id="val-temp">0</div>
+                    <div class="text-[10px] text-slate-500">Kelvin</div>
+                </div>
+
+                <!-- NEW: Collision Counter -->
+                <div class="col-span-2 bg-slate-700 p-2 rounded-lg flex justify-between items-center px-4">
+                    <div class="text-left">
+                        <div class="text-[10px] text-slate-400 uppercase">Wall Collisions</div>
+                        <div class="text-[10px] text-slate-500">Frequency</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xl font-mono font-bold text-green-400"><span id="val-collisions">0</span> <span class="text-sm font-normal text-slate-400">/sec</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Controls -->
+            <div class="p-6 space-y-6 flex-1">
+                
+                <!-- NEW: Gas Type Selector -->
+                <div class="space-y-2 pb-4 border-b border-slate-700">
+                    <label class="text-sm font-bold text-sky-400 block">Gas Type (Molar Mass)</label>
+                    <select id="select-gas" class="w-full bg-slate-700 text-white p-2 rounded border border-slate-600 focus:border-sky-500 outline-none">
+                        <option value="4">Helium (He) - Mass 4u</option>
+                        <option value="20">Neon (Ne) - Mass 20u</option>
+                        <option value="40">Argon (Ar) - Mass 40u</option>
+                        <option value="131">Xenon (Xe) - Mass 131u</option>
+                    </select>
+                    <p class="text-xs text-slate-400">Heavier particles move slower at the same Temp.</p>
+                </div>
+
+                <!-- Temperature Control -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="text-sm font-bold text-orange-400">Temperature</label>
+                        <span class="text-xs bg-slate-700 px-2 py-1 rounded text-orange-200" id="display-temp-val">300 K</span>
+                    </div>
+                    <input type="range" min="50" max="1000" value="300" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb" id="slider-temp">
+                </div>
+
+                <!-- Volume Control -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="text-sm font-bold text-green-400">Volume</label>
+                        <span class="text-xs bg-slate-700 px-2 py-1 rounded text-green-200"><span id="display-vol-val">6.0</span> L</span>
+                    </div>
+                    <input type="range" min="20" max="100" value="60" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb" id="slider-vol">
+                </div>
+
+                <!-- Moles Control -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="text-sm font-bold text-purple-400">Moles (n)</label>
+                        <span class="text-xs bg-slate-700 px-2 py-1 rounded text-purple-200" id="display-moles-val">50</span>
+                    </div>
+                    <input type="range" min="10" max="150" value="50" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb" id="slider-moles">
+                </div>
+
+                <!-- Live Graph -->
+                <div class="mt-4 bg-slate-800 p-2 rounded-lg border border-slate-700">
+                    <canvas id="pressureGraph" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- Configuration & State ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const containerBox = document.getElementById('container-box');
+        
+        // DOM Elements
+        const valPressure = document.getElementById('val-pressure');
+        const valTemp = document.getElementById('val-temp');
+        const valCollisions = document.getElementById('val-collisions');
+        
+        const displayGasName = document.getElementById('display-gas-name');
+        const displayGasMass = document.getElementById('display-gas-mass');
+        
+        // Inputs
+        const sliderTemp = document.getElementById('slider-temp');
+        const sliderVol = document.getElementById('slider-vol');
+        const sliderMoles = document.getElementById('slider-moles');
+        const selectGas = document.getElementById('select-gas');
+
+        // Input Value Displays
+        const dispTemp = document.getElementById('display-temp-val');
+        const dispVol = document.getElementById('display-vol-val');
+        const dispMoles = document.getElementById('display-moles-val');
+
+        // Chart setup
+        const ctxChart = document.getElementById('pressureGraph').getContext('2d');
+        const pressureChart = new Chart(ctxChart, {
+            type: 'line',
+            data: {
+                labels: Array(20).fill(''),
+                datasets: [{
+                    label: 'Pressure',
+                    data: Array(20).fill(0),
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: false,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        display: true, 
+                        grid: { color: '#334155' },
+                        ticks: { color: '#94a3b8', font: {size: 10} }
+                    },
+                    x: { display: false }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // --- Physics State ---
+        let particles = [];
+        let temperature = 300; // Kelvin
+        let volumePct = 60; // Percentage 20-100
+        let moleCount = 50;
+        let molarMass = 4; // Helium default
+        const particleRadius = 4;
+        
+        // Stats
+        let collisionCounter = 0;
+        let lastCollisionRate = 0;
+
+        // Constants
+        // Mass scaling: We want Helium (4) to be fast, Xenon (131) to be slow.
+        // v ~ sqrt(T/m). 
+        // We use a visual multiplier to make speeds look good on screen.
+        const SPEED_MULTIPLIER = 0.8; 
+        
+        // --- Particle Class ---
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.resetVelocity();
+            }
+
+            // Calculate velocity based on T and Mass
+            resetVelocity() {
+                const angle = Math.random() * Math.PI * 2;
+                // Maxwell-Boltzmann simplified: v is proportional to sqrt(T / m)
+                // We add some randomness (0.8 - 1.2) to simulate distribution
+                const baseSpeed = Math.sqrt(temperature / molarMass) * SPEED_MULTIPLIER;
+                const randomFactor = 0.8 + Math.random() * 0.4;
+                const speed = baseSpeed * randomFactor;
+                
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+            }
+
+            update(width, height) {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                let collided = false;
+
+                // Wall Collisions
+                if (this.x - particleRadius < 0) {
+                    this.x = particleRadius;
+                    this.vx *= -1;
+                    collided = true;
+                } else if (this.x + particleRadius > width) {
+                    this.x = width - particleRadius;
+                    this.vx *= -1;
+                    collided = true;
+                }
+
+                if (this.y - particleRadius < 0) {
+                    this.y = particleRadius;
+                    this.vy *= -1;
+                    collided = true;
+                } else if (this.y + particleRadius > height) {
+                    this.y = height - particleRadius;
+                    this.vy *= -1;
+                    collided = true;
+                }
+
+                if (collided) collisionCounter++;
+            }
+
+            draw() {
+                // Visualization: Hotter = Redder, Colder = Bluer
+                // We normalize this based on a standard "medium" speed
+                const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+                // Reference speed for color (based on Neon at 300K approx)
+                const refSpeed = Math.sqrt(300 / 20) * SPEED_MULTIPLIER; 
+                
+                let r, b;
+                // Map speed to color
+                const ratio = speed / refSpeed;
+                
+                if (ratio > 1) {
+                    // Fast
+                    r = 255;
+                    b = Math.max(0, 255 - (ratio - 1) * 200);
+                } else {
+                    // Slow
+                    b = 255;
+                    r = Math.max(0, 255 - (1 - ratio) * 200);
+                }
+
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, particleRadius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgb(${r}, 100, ${b})`;
+                ctx.fill();
+            }
+        }
+
+        // --- Core Functions ---
+
+        function initParticles(count) {
+            const currentCount = particles.length;
+            const width = canvas.width;
+            const height = canvas.height;
+
+            if (count > currentCount) {
+                for (let i = 0; i < count - currentCount; i++) {
+                    particles.push(new Particle(
+                        Math.random() * (width - 20) + 10,
+                        Math.random() * (height - 20) + 10
+                    ));
+                }
+            } else if (count < currentCount) {
+                particles.splice(count);
+            }
+        }
+
+        function resizeCanvas() {
+            const maxWidth = 600;
+            const currentWidthPx = (volumePct / 100) * maxWidth;
+            
+            containerBox.style.width = `${currentWidthPx}px`;
+            canvas.width = currentWidthPx;
+            canvas.height = 500;
+
+            // Push particles inside bounds
+            particles.forEach(p => {
+                if (p.x > canvas.width - particleRadius) {
+                    p.x = canvas.width - particleRadius - 1;
+                }
+            });
+            
+            // Update Text Display
+            dispVol.innerText = (volumePct / 10).toFixed(1); // Mock Liters
+        }
+
+        function updatePhysics() {
+            const width = canvas.width;
+            const height = canvas.height;
+            particles.forEach(p => {
+                p.update(width, height);
+                p.draw();
+            });
+        }
+
+        function updateReadouts() {
+            // P = nRT / V
+            const R = 0.0821; 
+            // Calculated P
+            const calcPressure = (moleCount * temperature * R) / (volumePct / 10);
+
+            valPressure.innerText = calcPressure.toFixed(2);
+            valTemp.innerText = temperature;
+            dispTemp.innerText = temperature + " K";
+            dispMoles.innerText = moleCount;
+
+            // Update Graph
+            const data = pressureChart.data.datasets[0].data;
+            data.shift();
+            data.push(calcPressure);
+            pressureChart.update();
+        }
+
+        // --- Interaction Handlers ---
+
+        function updateSpeeds() {
+            // Re-calculate speeds for all particles when T or Mass changes
+            // We regenerate the velocity vectors entirely to keep distribution random
+            particles.forEach(p => p.resetVelocity());
+        }
+
+        sliderTemp.addEventListener('input', (e) => {
+            temperature = parseInt(e.target.value);
+            updateSpeeds();
+        });
+
+        sliderVol.addEventListener('input', (e) => {
+            volumePct = parseInt(e.target.value);
+            resizeCanvas();
+        });
+
+        sliderMoles.addEventListener('input', (e) => {
+            moleCount = parseInt(e.target.value);
+            initParticles(moleCount);
+        });
+
+        selectGas.addEventListener('change', (e) => {
+            molarMass = parseInt(e.target.value);
+            const name = e.target.options[e.target.selectedIndex].text.split(' ')[0];
+            
+            // UI Updates
+            displayGasName.innerText = name;
+            displayGasMass.innerText = molarMass;
+            
+            // Physics Update
+            updateSpeeds();
+        });
+
+        // --- Loops ---
+
+        // 1. Animation Loop (60fps approx)
+        function animate() {
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.4)'; // Trail effect
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            updatePhysics();
+            requestAnimationFrame(animate);
+        }
+
+        // 2. Data Update Loop (Every 100ms) - Updates P, T, V text
+        setInterval(updateReadouts, 100);
+
+        // 3. Collision Rate Loop (Every 1 second) - Updates Frequency
+        setInterval(() => {
+            lastCollisionRate = collisionCounter;
+            collisionCounter = 0;
+            
+            // Animate the number change
+            valCollisions.innerText = lastCollisionRate;
+            
+            // Visual feedback if rate is high
+            if (lastCollisionRate > 500) {
+                valCollisions.className = "text-xl font-mono font-bold text-red-400";
+            } else {
+                valCollisions.className = "text-xl font-mono font-bold text-green-400";
+            }
+        }, 1000);
+
+        // --- Init ---
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        initParticles(moleCount);
+        animate();
+
+    </script>
+</body>
+</html>
